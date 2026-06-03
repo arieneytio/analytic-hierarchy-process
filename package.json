@@ -1,0 +1,22 @@
+{
+  "name": "ahp-decision-analyzer",
+  "version": "1.0.0",
+  "description": "Analytic Hierarchy Process (AHP) multi-criteria decision analysis with nested sub-criteria. Vanilla HTML/CSS/JS, no build step.",
+  "keywords": [
+    "ahp",
+    "analytic-hierarchy-process",
+    "mcdm",
+    "decision-analysis",
+    "saaty",
+    "vanilla-js"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve .",
+    "dev": "python3 -m http.server 8000"
+  },
+  "browserslist": [
+    "defaults"
+  ]
+}

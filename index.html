@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AHP Decision Analyzer</title>
+  <meta name="description" content="Analytic Hierarchy Process (AHP) multi-criteria decision analysis with nested sub-criteria." />
+  <link rel="stylesheet" href="src/css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">▲</span>
+      <div>
+        <h1>AHP Decision Analyzer</h1>
+        <p class="tagline">Analytic Hierarchy Process &mdash; rank alternatives across a weighted criteria hierarchy</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="loadSample" class="btn ghost" type="button">Load example</button>
+      <button id="resetAll" class="btn ghost danger" type="button">Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="content-col">
+    <!-- Step 1: Goal + hierarchy -->
+    <section class="card" id="setup">
+      <div class="card-head">
+        <span class="step-num">1</span>
+        <h2>Define the decision</h2>
+      </div>
+      <div class="field">
+        <label for="goalInput">Goal</label>
+        <input id="goalInput" type="text" placeholder="e.g. Choose the best laptop for work" />
+      </div>
+
+      <div class="two-col">
+        <div class="list-editor">
+          <h3>Criteria hierarchy</h3>
+          <p class="hint">
+            Add criteria, then nest sub-criteria under any of them with <b>+ sub</b>.
+            Leaf nodes (no children) are what the alternatives get compared against.
+          </p>
+          <div id="criteriaTree" class="tree"></div>
+          <div class="add-row">
+            <input id="criteriaInput" type="text" placeholder="Add a top-level criterion" />
+            <button id="addCriteria" class="btn small" type="button">Add</button>
+          </div>
+        </div>
+
+        <div class="list-editor">
+          <h3>Alternatives</h3>
+          <p class="hint">The options you are choosing between (e.g. Laptop A, Laptop B).</p>
+          <ul id="alternativesList" class="chip-list"></ul>
+          <div class="add-row">
+            <input id="alternativesInput" type="text" placeholder="Add an alternative" />
+            <button id="addAlternative" class="btn small" type="button">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-foot">
+        <button id="buildBtn" class="btn primary" type="button">Build comparisons &rarr;</button>
+        <span class="validation" id="setupValidation"></span>
+      </div>
+    </section>
+
+    <!-- Step 2: Comparisons (tabbed) -->
+    <section class="card hidden" id="compare">
+      <div class="card-head">
+        <span class="step-num">2</span>
+        <h2>Make your comparisons</h2>
+      </div>
+      <p class="hint">
+        Pick a respondent (or add more for a group decision), then fill in their pairwise comparisons.
+        First weigh the criteria, then score the alternatives under each leaf criterion (Saaty scale:
+        1 = equal, 9 = extreme). The <b>Group (avg)</b> view aggregates everyone via the geometric mean.
+      </p>
+      <div id="respondentBar" class="respondent-bar"></div>
+      <div id="compareTabs" class="tabs"></div>
+
+      <div class="scale-legend">
+        <span class="scale-legend-label">What the gauge means &mdash; Saaty intensity:</span>
+        <span class="scale-anchor"><b>1</b> Equal</span>
+        <span class="scale-anchor"><b>3</b> Moderate</span>
+        <span class="scale-anchor"><b>5</b> Strong</span>
+        <span class="scale-anchor"><b>7</b> Very strong</span>
+        <span class="scale-anchor"><b>9</b> Extreme</span>
+        <span class="scale-note">
+          The centre means the two are equally important. Drag the gauge &mdash; or tap
+          <b>◀ / ▶</b> &mdash; toward the option you consider more important; the further you go,
+          the stronger that preference. The <b>value</b> shown is the left-to-right ratio:
+          e.g. <b>3</b> means the left option is 3&times; as important, <b>1/3</b> means the right
+          one is (the group average shows a decimal, below 1 when the right option wins).
+        </span>
+      </div>
+
+      <div id="comparePanel"></div>
+    </section>
+
+    <!-- Step 3: Results -->
+    <section class="card hidden" id="results">
+      <div class="card-head">
+        <span class="step-num">3</span>
+        <h2>Results</h2>
+        <div class="head-action download-group">
+          <button id="downloadXlsx" class="btn small" type="button" title="Download these results as a multi-tab Excel workbook">⤓ Excel</button>
+          <button id="downloadCsv" class="btn small" type="button" title="Download these results as a CSV spreadsheet">⤓ CSV</button>
+        </div>
+      </div>
+      <div id="resultsBody"></div>
+    </section>
+    </div>
+
+    <aside class="side-panel" id="examplesPanel" aria-label="Example decisions"></aside>
+  </main>
+
+  <footer class="footer">
+    <p>Vanilla HTML, CSS &amp; JS &mdash; no dependencies. Priorities use the principal eigenvector (power iteration); leaf weights propagate through the hierarchy; consistency uses Saaty's CR.</p>
+  </footer>
+
+  <script src="src/js/ahp.js"></script>
+  <script src="src/js/tree.js"></script>
+  <script src="src/js/app.js"></script>
+</body>
+</html>
