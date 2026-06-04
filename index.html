@@ -17,8 +17,17 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <div class="project-bar">
+        <label for="projectSelect" class="project-label">Project</label>
+        <select id="projectSelect" title="Switch project"></select>
+        <button id="newProject" class="btn ghost small" type="button" title="Create a new, empty project">＋ New</button>
+        <button id="renameProject" class="btn ghost small" type="button" title="Rename this project">Rename</button>
+        <button id="dupProject" class="btn ghost small" type="button" title="Duplicate this project">Duplicate</button>
+        <button id="deleteProject" class="btn ghost small danger" type="button" title="Delete this project">Delete</button>
+      </div>
+      <span class="topbar-sep" aria-hidden="true"></span>
       <button id="loadSample" class="btn ghost" type="button">Load example</button>
-      <button id="resetAll" class="btn ghost danger" type="button">Reset</button>
+      <button id="resetAll" class="btn ghost danger" type="button" title="Clear the current project">Reset</button>
     </div>
   </header>
 
@@ -33,6 +42,11 @@
       <div class="field">
         <label for="goalInput">Goal</label>
         <input id="goalInput" type="text" placeholder="e.g. Choose the best laptop for work" />
+      </div>
+
+      <div class="field">
+        <label for="projectDesc">Project description / notes <span class="optional">(optional)</span></label>
+        <textarea id="projectDesc" rows="2" placeholder="Context, assumptions, who's involved, the decision deadline…"></textarea>
       </div>
 
       <div class="two-col">

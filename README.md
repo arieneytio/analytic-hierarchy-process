@@ -6,15 +6,48 @@ vanilla HTML, CSS, and JavaScript — no frameworks, no build step.
 
 ![Vanilla JS](https://img.shields.io/badge/stack-vanilla%20JS-f7df1e) ![No build](https://img.shields.io/badge/build-none-success) ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## Features
+
+- **Nested criteria hierarchy** — criteria → sub-criteria to any depth.
+- **Pairwise gauge** with ◀ / ▶ stepper buttons, a Saaty 1–9 legend, and the live ratio value (e.g. `3` or `1/3`).
+- **Live consistency** — a Consistency Ratio per comparison, flagged when CR > 10%.
+- **Multiple respondents** with a geometric-mean **Group** view for group decisions.
+- **Multiple projects**, each with its own description/notes, saved separately so nothing is lost.
+- **Export** to a multi-tab Excel (`.xlsx`) workbook or a CSV.
+- **Sample decisions** sidebar plus a fully-worked, loadable example.
+- 100% client-side — vanilla HTML/CSS/JS, no dependencies, no build, no server, no data leaves the browser.
+
 ## What it does
 
 AHP turns a messy "which option is best?" question into a structured, numeric ranking:
 
-1. **Define the decision** — a goal, a hierarchy of criteria (with optional sub-criteria), and the alternatives.
-2. **Compare** — for one or more respondents, pairwise judgements on Saaty's 1–9 scale: first weighing the criteria, then scoring the alternatives under every *leaf* criterion. All comparisons live in a single tabbed panel.
-3. **Read the results** — a ranked list, the propagated criteria weights, and a full decision matrix.
+1. **Define the decision** — a goal, an optional description, a hierarchy of criteria (with optional sub-criteria), and the alternatives.
+2. **Compare** — for one or more respondents, make pairwise judgements on a Saaty 1–9 gauge: first weigh the criteria, then score the alternatives under every *leaf* criterion. All comparisons live in one tabbed panel, each tab showing a green/red consistency dot.
+3. **Read & export the results** — a ranked list, the propagated criteria weights, a full decision matrix, and one-click Excel/CSV download.
 
 Consistency is checked everywhere via Saaty's **Consistency Ratio (CR)**; anything above 10% is flagged.
+
+## Making comparisons
+
+Each comparison uses a gauge centred on "equal". Drag it — or tap the **◀ / ▶** buttons — toward the
+option you consider more important; the further you go, the stronger the preference (Saaty intensity:
+1 = equal … 9 = extreme). The gauge shows its current value as a ratio — **3** means the left option
+is judged 3× as important, **1/3** means the right one is. A legend above the comparisons spells the
+scale out, and the **Group (avg)** view shows the aggregated value as a decimal (below 1 when the
+right option wins).
+
+## Projects
+
+Work on several decisions without losing any of them. The toolbar has a **Project** picker:
+
+- **Switch** projects from the dropdown — the one you're leaving is saved automatically first.
+- **＋ New** starts a fresh, empty project; **Rename**, **Duplicate**, and **Delete** manage the rest.
+
+Every project keeps its own goal, an optional **description / notes** field, criteria hierarchy,
+respondents, and judgements — all stored separately in `localStorage`, so switching never overwrites
+another project's work. **Load example** opens the worked demo in its *own* new project, leaving your
+current work untouched. A single-project save from an earlier version is migrated into the
+multi-project store automatically on first load.
 
 ## Multiple respondents (group decisions)
 
@@ -68,7 +101,7 @@ AHP/
     └── js/
         ├── ahp.js        # pure matrix math: eigenvector, CR, aggregation (window.AHP)
         ├── tree.js       # criteria hierarchy + weight propagation (window.AHPTree)
-        └── app.js        # UI, state, and localStorage persistence
+        └── app.js        # UI, state, projects, CSV/XLSX export, localStorage persistence
 ```
 
 ## Running it
@@ -105,13 +138,10 @@ A matrix is treated as acceptably consistent when **CR ≤ 0.10**.
 
 ## Notes
 
-- **Download Excel / CSV** (in the Results header) exports the analysis as a spreadsheet — final
-  ranking, criteria leaf weights, the full decision matrix, consistency ratios, and a per-respondent
-  score comparison. Numbers are written at full precision so the spreadsheet can recompute from them.
-- All state (goal, hierarchy, respondents, judgements) is auto-saved to `localStorage`, so a reload restores your work.
-- A **sample-decisions sidebar** sits beside the form: pick one (e.g. hiring a candidate, picking a holiday) to auto-fill the goal, criteria and alternatives, then make your own comparisons.
-- "Load example" populates a fully-worked 2-level laptop-choice model with **two respondents** (Priya, performance-focused; Sam, budget-focused) so you can try the Group view immediately.
-- No data leaves the browser.
+- All state (goal, description, hierarchy, respondents, judgements) is auto-saved **per project** to `localStorage`, so a reload restores every project and reopens the one you were on.
+- A **sample-decisions sidebar** sits beside the form: pick one (e.g. hiring a candidate, picking a holiday) to auto-fill the goal, criteria and alternatives in the current project, then make your own comparisons.
+- **Load example** creates a **new project** with a fully-worked 2-level laptop-choice model and **two respondents** (Priya, performance-focused; Sam, budget-focused) so you can try the Group view immediately — your existing projects are kept.
+- Everything runs locally; **no data leaves the browser**.
 
 ## License
 

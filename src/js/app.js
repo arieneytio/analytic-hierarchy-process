@@ -2,11 +2,15 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "ahp-analyzer-v2";
+  const PROJECTS_KEY = "ahp-projects-v1";   // registry of all projects
+  const LEGACY_KEY = "ahp-analyzer-v2";     // single-project key from earlier versions
 
   // ---- State -------------------------------------------------------------
+  // `state` is the live working copy of the *active* project. Each project's
+  // data is persisted separately in the registry so switching never loses work.
   const state = {
     goal: "",
+    description: "",             // free-text notes for this project
     tree: { id: "root", name: "Goal", children: [] }, // root.children = top-level criteria
     alternatives: [],            // string[]
     // One entry per respondent; each holds that person's judgement matrices:
@@ -37,37 +41,177 @@
     return "n" + state.nextId++;
   }
 
-  // ---- Persistence -------------------------------------------------------
-  function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-  }
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return false;
-      const data = JSON.parse(raw);
-      Object.assign(state, data);
-      if (!state.tree) state.tree = { id: "root", name: "Goal", children: [] };
-      migrateRespondents(data);
-      return true;
-    } catch (e) { return false; }
-  }
+  // ---- Projects + persistence --------------------------------------------
+  let projects = [];   // [{ id, name, updatedAt, data }]
+  let activeId = null;
 
-  // Older saves kept matrices at the top level (single implicit respondent).
-  // Wrap them into one respondent so group features work.
-  function migrateRespondents(data) {
-    if (!Array.isArray(state.respondents) || state.respondents.length === 0) {
-      state.respondents = [{
-        id: newId(),
-        name: "Respondent 1",
-        criteriaMatrices: (data && data.criteriaMatrices) || {},
-        altMatrices: (data && data.altMatrices) || {},
+  function projectId() {
+    return "proj-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36);
+  }
+  function activeProject() {
+    return projects.find((p) => p.id === activeId) || null;
+  }
+  function blankData() {
+    return {
+      goal: "", description: "", tree: { id: "root", name: "Goal", children: [] }, alternatives: [],
+      respondents: [], activeRespondent: null, activeCompareKey: null, nextId: 1, built: false,
+    };
+  }
+  // Snapshot the live state into a plain object for storage.
+  function snapshotState() {
+    return {
+      goal: state.goal, description: state.description, tree: state.tree, alternatives: state.alternatives,
+      respondents: state.respondents, activeRespondent: state.activeRespondent,
+      activeCompareKey: state.activeCompareKey, nextId: state.nextId, built: state.built,
+    };
+  }
+  // Normalise a project's data (migrate legacy top-level matrices into a respondent).
+  function normalizeData(d) {
+    d = d || blankData();
+    if (!d.tree) d.tree = { id: "root", name: "Goal", children: [] };
+    if (!Array.isArray(d.respondents) || d.respondents.length === 0) {
+      d.respondents = [{
+        id: "r-1", name: "Respondent 1",
+        criteriaMatrices: d.criteriaMatrices || {}, altMatrices: d.altMatrices || {},
       }];
     }
-    delete state.criteriaMatrices;
-    delete state.altMatrices;
-    if (!state.respondents.some((r) => r.id === state.activeRespondent) && state.activeRespondent !== "group") {
-      state.activeRespondent = state.respondents[0].id;
+    delete d.criteriaMatrices;
+    delete d.altMatrices;
+    return d;
+  }
+  // Load a data object into the live state.
+  function applyStateData(d) {
+    d = normalizeData(d);
+    state.goal = d.goal || "";
+    state.description = d.description || "";
+    state.tree = d.tree;
+    state.alternatives = Array.isArray(d.alternatives) ? d.alternatives : [];
+    state.respondents = d.respondents;
+    state.activeRespondent = d.activeRespondent || null;
+    state.activeCompareKey = d.activeCompareKey || null;
+    state.nextId = d.nextId || 1;
+    state.built = !!d.built;
+  }
+
+  // Persist the whole registry (after syncing the live state into the active slot).
+  function save() {
+    const p = activeProject();
+    if (p) { p.data = snapshotState(); p.updatedAt = Date.now(); }
+    try { localStorage.setItem(PROJECTS_KEY, JSON.stringify({ activeId, projects })); } catch (e) { /* ignore */ }
+  }
+
+  // Build the in-memory registry from storage (or migrate / seed a first project).
+  function loadProjects() {
+    let parsed = null;
+    try { parsed = JSON.parse(localStorage.getItem(PROJECTS_KEY)); } catch (e) { /* ignore */ }
+    if (parsed && Array.isArray(parsed.projects) && parsed.projects.length) {
+      projects = parsed.projects;
+      activeId = projects.some((p) => p.id === parsed.activeId) ? parsed.activeId : projects[0].id;
+      return;
+    }
+    // Migrate a single-project save from an earlier version.
+    let legacy = null;
+    try { legacy = JSON.parse(localStorage.getItem(LEGACY_KEY)); } catch (e) { /* ignore */ }
+    if (legacy && (legacy.tree || legacy.goal || legacy.respondents)) {
+      const id = projectId();
+      projects = [{ id, name: (legacy.goal || "Imported project").slice(0, 40), updatedAt: Date.now(), data: legacy }];
+      activeId = id;
+      return;
+    }
+    const id = projectId();
+    projects = [{ id, name: "My first project", updatedAt: Date.now(), data: blankData() }];
+    activeId = id;
+  }
+
+  // ---- Project actions ----------------------------------------------------
+  function switchProject(id) {
+    if (id === activeId) return;
+    save();                       // persist the project we're leaving
+    activeId = id;
+    applyStateData(activeProject().data);
+    ensureRespondents();
+    renderProjectSelect();
+    renderWorkspace();
+    save();
+  }
+  function newProject(name) {
+    save();
+    const id = projectId();
+    projects.push({ id, name: name || "Project " + (projects.length + 1), updatedAt: Date.now(), data: blankData() });
+    activeId = id;
+    applyStateData(blankData());
+    ensureRespondents();
+    renderProjectSelect();
+    renderWorkspace();
+    save();
+  }
+  function renameProject() {
+    const p = activeProject();
+    if (!p) return;
+    const name = prompt("Rename project:", p.name);
+    if (name === null) return;
+    p.name = name.trim() || p.name;
+    renderProjectSelect();
+    save();
+  }
+  function duplicateProject() {
+    save();
+    const p = activeProject();
+    const id = projectId();
+    const copy = JSON.parse(JSON.stringify(p.data));
+    projects.push({ id, name: p.name + " (copy)", updatedAt: Date.now(), data: copy });
+    activeId = id;
+    applyStateData(copy);
+    ensureRespondents();
+    renderProjectSelect();
+    renderWorkspace();
+    save();
+  }
+  function deleteProject() {
+    const p = activeProject();
+    if (!p) return;
+    if (!confirm(`Delete project “${p.name}”? This cannot be undone.`)) return;
+    projects = projects.filter((x) => x.id !== activeId);
+    if (projects.length === 0) {
+      projects.push({ id: projectId(), name: "My first project", updatedAt: Date.now(), data: blankData() });
+    }
+    activeId = projects[0].id;
+    applyStateData(activeProject().data);
+    ensureRespondents();
+    renderProjectSelect();
+    renderWorkspace();
+    save();
+  }
+  function renderProjectSelect() {
+    const sel = $("projectSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
+    projects
+      .slice()
+      .forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.name;
+        opt.title = (p.data && p.data.description) || "";
+        if (p.id === activeId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+  }
+
+  // Render the whole workspace from the current state (used on load / switch).
+  function renderWorkspace() {
+    $("goalInput").value = state.goal || "";
+    $("projectDesc").value = state.description || "";
+    $("setupValidation").textContent = "";
+    renderTreeEditor();
+    renderAlternatives();
+    if (state.built && AHPTree.leaves(state.tree).length >= 1 && state.alternatives.length >= 2) {
+      buildMatrices();
+      renderCompareStep();
+      renderResults();
+    } else {
+      $("compare").classList.add("hidden");
+      $("results").classList.add("hidden");
     }
   }
 
@@ -819,6 +963,7 @@
 
     push("AHP Decision Analysis");
     push("Goal", state.goal || "(none)");
+    if (state.description) push("Description", state.description);
     push("Result shown for", sourceLabel);
     push("Priority method", "Principal eigenvector (power iteration)");
     push();
@@ -951,11 +1096,12 @@
     const summary = [
       [H("AHP Decision Analysis")],
       [T("Goal"), T(state.goal || "(none)")],
-      [T("Result shown for"), T(sourceLabel)],
-      [T("Priority method"), T("Principal eigenvector (power iteration)")],
-      [],
-      [H("Rank"), H("Alternative"), H("Priority"), H("Priority %")],
     ];
+    if (state.description) summary.push([T("Description"), T(state.description)]);
+    summary.push([T("Result shown for"), T(sourceLabel)]);
+    summary.push([T("Priority method"), T("Principal eigenvector (power iteration)")]);
+    summary.push([]);
+    summary.push([H("Rank"), H("Alternative"), H("Priority"), H("Priority %")]);
     ranked.forEach((r, pos) => summary.push([N(pos + 1), T(r.name), N(r.score), N(r.score * 100)]));
     sheets.push({ name: "Summary", rows: summary });
 
@@ -1138,6 +1284,9 @@
   // ---- Sample data --------------------------------------------------------
   function sampleData() {
     state.goal = "Choose the best laptop for daily work";
+    state.description = "Worked example: three laptops compared on cost (upfront + running), " +
+      "performance (CPU/GPU + memory), battery life and build quality, judged by two respondents " +
+      "— Priya (performance-focused) and Sam (budget-focused). Try the Group (avg) view.";
     state.nextId = 1;
     const id = () => newId();
     const cost = { id: id(), name: "Cost", children: [] };
@@ -1287,6 +1436,7 @@
   // leaving the pairwise comparisons for the user to fill in.
   function applyExample(ex) {
     state.goal = ex.goal;
+    state.description = "";
     state.nextId = 1;
     state.tree = {
       id: "root",
@@ -1304,12 +1454,7 @@
     state.built = false;
     ensureRespondents();
 
-    $("goalInput").value = state.goal;
-    $("setupValidation").textContent = "";
-    renderTreeEditor();
-    renderAlternatives();
-    $("compare").classList.add("hidden");
-    $("results").classList.add("hidden");
+    renderWorkspace();
     save();
     $("setup").scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -1321,6 +1466,10 @@
       save();
       if (state.built) renderResults();
     });
+    $("projectDesc").addEventListener("input", (e) => {
+      state.description = e.target.value;
+      save();
+    });
     $("addCriteria").addEventListener("click", () => addCriterion($("criteriaInput")));
     $("addAlternative").addEventListener("click", () => addAlternative($("alternativesInput")));
     $("criteriaInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addCriterion($("criteriaInput")); });
@@ -1329,33 +1478,28 @@
     $("downloadCsv").addEventListener("click", downloadResultsCsv);
     $("downloadXlsx").addEventListener("click", downloadResultsXlsx);
 
+    // Project controls
+    $("projectSelect").addEventListener("change", (e) => switchProject(e.target.value));
+    $("newProject").addEventListener("click", () => newProject());
+    $("renameProject").addEventListener("click", renameProject);
+    $("dupProject").addEventListener("click", duplicateProject);
+    $("deleteProject").addEventListener("click", deleteProject);
+
     $("loadSample").addEventListener("click", () => {
-      sampleData();
-      $("goalInput").value = state.goal;
-      renderTreeEditor();
-      renderAlternatives();
-      renderCompareStep();
-      renderResults();
-      save();
+      newProject();          // open the example in its own project (keeps current work)
+      sampleData();          // fill the new project's live state
+      const p = activeProject();
+      if (p) p.name = state.goal || "Example project";
+      save();                // persist sample (name + description) into the project slot
+      renderProjectSelect(); // now reflects the example's name/description tooltip
+      renderWorkspace();
     });
 
     $("resetAll").addEventListener("click", () => {
-      if (!confirm("Clear the goal, criteria hierarchy, alternatives and all judgements?")) return;
-      state.goal = "";
-      state.tree = { id: "root", name: "Goal", children: [] };
-      state.alternatives = [];
-      state.respondents = [];
-      state.activeRespondent = null;
-      state.activeCompareKey = null;
-      state.nextId = 1;
-      state.built = false;
+      if (!confirm("Clear this project's goal, criteria hierarchy, alternatives and all judgements?")) return;
+      applyStateData(blankData());
       ensureRespondents();
-      $("goalInput").value = "";
-      $("setupValidation").textContent = "";
-      renderTreeEditor();
-      renderAlternatives();
-      $("compare").classList.add("hidden");
-      $("results").classList.add("hidden");
+      renderWorkspace();
       save();
     });
   }
@@ -1363,16 +1507,12 @@
   function init() {
     bindSetup();
     renderExamples();
-    const restored = load();
+    loadProjects();
+    applyStateData(activeProject().data);
     ensureRespondents();
-    $("goalInput").value = state.goal || "";
-    renderTreeEditor();
-    renderAlternatives();
-    if (restored && state.built && AHPTree.leaves(state.tree).length >= 1 && state.alternatives.length >= 2) {
-      buildMatrices();
-      renderCompareStep();
-      renderResults();
-    }
+    renderProjectSelect();
+    renderWorkspace();
+    save(); // normalise legacy data into the registry shape
   }
 
   document.addEventListener("DOMContentLoaded", init);

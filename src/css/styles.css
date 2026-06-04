@@ -55,7 +55,23 @@ p { margin: 0; }
 }
 .topbar h1 { font-size: 20px; letter-spacing: 0.2px; }
 .tagline { color: var(--muted); font-size: 13px; }
-.topbar-actions { display: flex; gap: 10px; }
+.topbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.topbar-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
+.project-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.project-label { margin: 0; font-size: 12.5px; color: var(--muted); }
+#projectSelect {
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  max-width: 200px;
+  cursor: pointer;
+  outline: none;
+}
+#projectSelect:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 156, 255, 0.18); }
+.btn.small { padding: 8px 11px; font-size: 12.5px; }
 
 /* ---------- Layout ---------- */
 main {
@@ -149,6 +165,27 @@ input[type="text"]:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(79, 156, 255, 0.18);
 }
+
+textarea {
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 44px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 156, 255, 0.18);
+}
+.optional { color: var(--muted); font-weight: 400; font-size: 11.5px; }
 
 .two-col {
   display: grid;
